@@ -14,9 +14,57 @@ st.set_page_config(
     page_title="Smart Energy Audit",
     layout="wide"
 )
+# ==========================
+# THINGSPEAK
+# ==========================
 
-st.title("Smart Energy Audit")
-st.write("Forecasting Konsumsi Daya Menggunakan Random Forest dan LSTM")
+CHANNEL_ID = "3385312"
+READ_API_KEY = "B36V7H0SQ125V51W"
+
+# ==========================
+# SIDEBAR
+# ==========================
+
+st.sidebar.title("⚡ Smart Energy Audit")
+
+st.sidebar.markdown("---")
+
+st.sidebar.subheader("ThingSpeak")
+
+st.sidebar.write(f"Channel : {CHANNEL_ID}")
+
+st.sidebar.write("Refresh : 60 detik")
+
+st.sidebar.markdown("---")
+
+st.sidebar.subheader("Model")
+
+st.sidebar.success("Random Forest")
+
+st.sidebar.success("LSTM")
+
+st.sidebar.markdown("---")
+
+st.sidebar.subheader("Universitas")
+
+st.sidebar.write("Telkom University")
+
+st.sidebar.write("Teknik Elektro")
+
+st.title("Smart Energy Audit Dashboard")
+
+st.markdown(
+    """
+### Prediksi Konsumsi Daya Gedung Menggunakan Machine Learning
+
+Model yang digunakan:
+
+- Random Forest Regression
+- Long Short-Term Memory (LSTM)
+
+Dashboard terhubung secara realtime dengan ThingSpeak dan melakukan forecasting konsumsi daya setiap jam.
+"""
+)
 
 
 # Refresh otomatis setiap 60 detik
@@ -25,12 +73,6 @@ st_autorefresh(
     key="refresh"
 )
 
-# ==========================
-# THINGSPEAK
-# ==========================
-
-CHANNEL_ID = "3385312"
-READ_API_KEY = "B36V7H0SQ125V51W"
 
 # ==========================
 # LOAD MODEL
@@ -126,15 +168,37 @@ st.plotly_chart(
     use_container_width=True
 )
 
-st.subheader("Informasi Data")
+st.subheader("Informasi Sistem")
 
-st.write(f"Channel ID : {CHANNEL_ID}")
+col1, col2, col3, col4 = st.columns(4)
 
-st.write(f"Jumlah Data Per Jam : {len(hourly)}")
+with col1:
+    st.metric(
+        "Jumlah Data",
+        len(hourly)
+    )
 
-st.write(
-    "Update Terakhir : "
-    + hourly.index[-1].strftime("%d-%m-%Y %H:%M WIB")
+with col2:
+    st.metric(
+        "Update Terakhir",
+        hourly.index[-1].strftime("%H:%M")
+    )
+
+with col3:
+    st.metric(
+        "Random Forest",
+        "READY"
+    )
+
+with col4:
+    st.metric(
+        "LSTM",
+        "READY"
+    )
+
+st.caption(
+    f"Channel ThingSpeak : {CHANNEL_ID} | "
+    f"Update terakhir : {hourly.index[-1].strftime('%d-%m-%Y %H:%M WIB')}"
 )
 
 # ==========================
@@ -229,74 +293,66 @@ if len(hourly) >= 24:
         )
 
     # ==========================
-    # RF FORECAST
+    # FORECAST 5 JAM KEDEPAN
     # ==========================
 
-    st.subheader(
-        "Forecasting Random Forest (5 Jam Kedepan)"
+    st.subheader("Forecast 5 Jam Kedepan")
+
+    future_time = pd.date_range(
+        start=hourly.index[-1] + pd.Timedelta(hours=1),
+        periods=5,
+        freq="h"
     )
 
-    rf_df = pd.DataFrame({
-        "Jam": ["+1", "+2", "+3", "+4", "+5"],
-        "Power": rf_forecast
+    forecast_df = pd.DataFrame({
+        "Waktu": future_time,
+        "Random Forest": rf_forecast,
+        "LSTM": lstm_forecast
+    })
+    forecast_df["Waktu"] = (
+    forecast_df["Waktu"]
+    .dt.strftime("%d-%m %H:%M")
+)
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("### Random Forest")
+        st.dataframe(
+            forecast_df[["Waktu", "Random Forest"]],
+            use_container_width=True
+        )
+
+    with col2:
+        st.markdown("### LSTM")
+        st.dataframe(
+            forecast_df[["Waktu", "LSTM"]],
+            use_container_width=True
+        )
+
+    plot_forecast = pd.DataFrame({
+        "Waktu": [hourly.index[-1]] + list(future_time),
+        "Aktual": [hourly.iloc[-1]] + [None] * 5,
+        "Random Forest": [hourly.iloc[-1]] + rf_forecast,
+        "LSTM": [hourly.iloc[-1]] + lstm_forecast
     })
 
-    st.dataframe(
-        rf_df,
-        use_container_width=True
-    )
-
-    fig_rf = px.line(
-        rf_df,
-        x="Jam",
-        y="Power",
+    fig = px.line(
+        plot_forecast,
+        x="Waktu",
+        y=["Aktual", "Random Forest", "LSTM"],
         markers=True,
-        title="Forecast Random Forest"
+        title="Perbandingan Forecast 5 Jam Kedepan"
     )
 
-    fig_rf.update_layout(
-        xaxis_title="Jam Kedepan",
+    fig.update_layout(
+        hovermode="x unified",
+        xaxis_title="Waktu (WIB)",
         yaxis_title="Power (Watt)"
     )
 
     st.plotly_chart(
-        fig_rf,
-        use_container_width=True
-    )
-
-    # ==========================
-    # LSTM FORECAST
-    # ==========================
-
-    st.subheader(
-        "Forecasting LSTM (5 Jam Kedepan)"
-    )
-
-    lstm_df = pd.DataFrame({
-        "Jam": ["+1", "+2", "+3", "+4", "+5"],
-        "Power": lstm_forecast
-    })
-
-    st.dataframe(
-        lstm_df,
-        use_container_width=True
-    )
-
-    fig_lstm = px.line(
-        lstm_df,
-        x="Jam",
-        y="Power",
-        markers=True,
-        title="Forecast LSTM"
-    )
-
-    fig_lstm.update_layout(
-        xaxis_title="Jam Kedepan",
-        yaxis_title="Power (Watt)"
-    )
-
-    st.plotly_chart(
-        fig_lstm,
+        fig,
         use_container_width=True
     )
 
@@ -309,16 +365,65 @@ if len(hourly) >= 24:
     )
 
     result = pd.DataFrame({
-        "Model": ["Random Forest", "LSTM"],
-        "MAE": [1001.84, 1008.83],
-        "RMSE": [1398.88, 1363.49],
-        "R²": [0.8490, 0.8565]
+        "Model": [
+            "Random Forest",
+            "LSTM"
+        ],
+        "MAE": [
+            991.33,
+            1008.68
+        ],
+        "RMSE": [
+            1385.22,
+            1320.19
+        ],
+        "R²": [
+            0.8207,
+            0.8371
+        ]
     })
 
     st.dataframe(
         result,
         use_container_width=True
     )
+
+    # ==========================
+    # ANALISIS MODEL
+    # ==========================
+
+    st.subheader("Analisis Model")
+
+    rf_mae = 991.33
+    lstm_mae = 1008.68
+
+    if rf_mae < lstm_mae:
+
+        st.success(
+            f"""
+    🏆 Model Terbaik : **Random Forest**
+
+    MAE Random Forest = {rf_mae:.2f}
+
+    MAE LSTM = {lstm_mae:.2f}
+
+    Random Forest memberikan error prediksi yang lebih kecil sehingga menjadi model yang lebih akurat pada dataset pengujian.
+    """
+        )
+
+    else:
+
+        st.success(
+            f"""
+    🏆 Model Terbaik : **LSTM**
+
+    MAE Random Forest = {rf_mae:.2f}
+
+    MAE LSTM = {lstm_mae:.2f}
+
+    LSTM memberikan error prediksi yang lebih kecil sehingga menjadi model yang lebih akurat pada dataset pengujian.
+    """
+        )
 
     # ==========================
     # VALIDASI
@@ -374,17 +479,108 @@ if len(hourly) >= 24:
         ]
     })
 
-    fig_compare = px.bar(
+    fig_compare = px.scatter(
         compare_df,
         x="Model",
         y="Power",
+        size="Power",
+        color="Model",
         title="Aktual vs Forecast"
+    )
+
+    fig_compare.update_traces(
+        marker=dict(size=25)
     )
 
     st.plotly_chart(
         fig_compare,
         use_container_width=True
     )
+    # ==========================
+    # HISTORY RANDOM FOREST
+    # ==========================
+
+    st.subheader("History Evaluasi Random Forest")
+
+    history_rf = pd.read_csv("history_rf.csv")
+
+    history_rf["Waktu"] = pd.to_datetime(history_rf["Waktu"])
+
+    fig_rf = px.line(
+        history_rf,
+        x="Waktu",
+        y=["Actual", "Prediction"],
+        markers=True,
+        title="Random Forest : Aktual vs Prediksi"
+    )
+
+    fig_rf.update_layout(
+        hovermode="x unified",
+        xaxis_title="Waktu",
+        yaxis_title="Power (Watt)"
+    )
+
+    st.plotly_chart(
+        fig_rf,
+        use_container_width=True
+    )
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.metric(
+            "MAE History RF",
+            f"{history_rf['Error'].mean():.2f} W"
+        )
+
+    with col2:
+        st.metric(
+            "MAPE History RF",
+            f"{history_rf['MAPE'].mean():.2f} %"
+        )
+    # ==========================
+    # HISTORY LSTM
+    # ==========================
+
+    st.subheader("History Evaluasi LSTM")
+
+    history_lstm = pd.read_csv("history_lstm.csv")
+
+    history_lstm["Waktu"] = pd.to_datetime(history_lstm["Waktu"])
+
+    fig_lstm = px.line(
+        history_lstm,
+        x="Waktu",
+        y=["Actual", "Prediction"],
+        markers=True,
+        title="LSTM : Aktual vs Prediksi"
+    )
+
+    fig_lstm.update_layout(
+        hovermode="x unified",
+        xaxis_title="Waktu",
+        yaxis_title="Power (Watt)"
+    )
+
+    st.plotly_chart(
+        fig_lstm,
+        use_container_width=True
+    )
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.metric(
+            "MAE History LSTM",
+            f"{history_lstm['Error'].mean():.2f} W"
+        )
+
+    with col2:
+        st.metric(
+            "MAPE History LSTM",
+            f"{history_lstm['MAPE'].mean():.2f} %"
+        )
+    
 
 else:
 
