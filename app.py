@@ -170,27 +170,22 @@ st.plotly_chart(
 
 st.subheader("Informasi Sistem")
 
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3 = st.columns(3)
+
 
 with col1:
-    st.metric(
-        "Jumlah Data",
-        len(hourly)
-    )
-
-with col2:
     st.metric(
         "Update Terakhir",
         hourly.index[-1].strftime("%H:%M")
     )
 
-with col3:
+with col2:
     st.metric(
         "Random Forest",
         "READY"
     )
 
-with col4:
+with col3:
     st.metric(
         "LSTM",
         "READY"
