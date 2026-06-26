@@ -383,42 +383,7 @@ if len(hourly) >= 24:
         use_container_width=True
     )
 
-    # ==========================
-    # ANALISIS MODEL
-    # ==========================
 
-    st.subheader("Analisis Model")
-
-    rf_mae = 991.33
-    lstm_mae = 1008.68
-
-    if rf_mae < lstm_mae:
-
-        st.success(
-            f"""
-    🏆 Model Terbaik : **Random Forest**
-
-    MAE Random Forest = {rf_mae:.2f}
-
-    MAE LSTM = {lstm_mae:.2f}
-
-    Random Forest memberikan error prediksi yang lebih kecil sehingga menjadi model yang lebih akurat pada dataset pengujian.
-    """
-        )
-
-    else:
-
-        st.success(
-            f"""
-    🏆 Model Terbaik : **LSTM**
-
-    MAE Random Forest = {rf_mae:.2f}
-
-    MAE LSTM = {lstm_mae:.2f}
-
-    LSTM memberikan error prediksi yang lebih kecil sehingga menjadi model yang lebih akurat pada dataset pengujian.
-    """
-        )
 
     # ==========================
     # VALIDASI
@@ -491,6 +456,46 @@ if len(hourly) >= 24:
         fig_compare,
         use_container_width=True
     )
+    
+    # ==========================
+    # ANALISIS MODEL
+    # ==========================
+
+    st.subheader("Analisis Forecast Terbaru")
+
+    rf_error = validation.loc[0, "Error"]
+    lstm_error = validation.loc[1, "Error"]
+
+
+    if rf_error < lstm_error:
+
+        st.success(
+            f"""
+    🏆 Model Terbaik Saat Ini : **Random Forest**
+
+    Selisih prediksi Random Forest : **{rf_error:.2f} Watt**
+
+    Selisih prediksi LSTM : **{lstm_error:.2f} Watt**
+
+    Random Forest memiliki selisih prediksi yang lebih kecil terhadap data aktual sehingga memberikan hasil forecasting yang lebih akurat pada pembaruan data terbaru.
+    """
+        )
+
+    else:
+
+        st.success(
+            f"""
+    🏆 Model Terbaik Saat Ini : **LSTM**
+
+    Selisih prediksi Random Forest : **{rf_error:.2f} Watt**
+
+    Selisih prediksi LSTM : **{lstm_error:.2f} Watt**
+
+
+    LSTM memiliki selisih prediksi yang lebih kecil terhadap data aktual sehingga memberikan hasil forecasting yang lebih akurat pada pembaruan data terbaru.
+    """
+        )
+
     # ==========================
     # HISTORY RANDOM FOREST
     # ==========================
