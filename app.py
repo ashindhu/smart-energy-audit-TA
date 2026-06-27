@@ -160,7 +160,7 @@ fig = px.line(
 fig.update_layout(
     hovermode="x unified",
     xaxis_title="Waktu (WIB)",
-    yaxis_title="Power (Watt)"
+    yaxis_title="Power (kW)"
 )
 
 st.plotly_chart(
@@ -195,6 +195,175 @@ st.caption(
     f"Channel ThingSpeak : {CHANNEL_ID} | "
     f"Update terakhir : {hourly.index[-1].strftime('%d-%m-%Y %H:%M WIB')}"
 )
+
+# ==========================
+# HASIL AUDIT ENERGI
+# ==========================
+
+st.header("📋 Hasil Audit Energi")
+
+avg_power = hourly.mean()
+max_power = hourly.max()
+min_power = hourly.min()
+
+peak_time = hourly.idxmax()
+offpeak_time = hourly.idxmin()
+
+current_power = hourly.iloc[-1]
+# Konversi Watt -> kW
+avg_power_kw = avg_power / 1000
+max_power_kw = max_power / 1000
+min_power_kw = min_power / 1000
+current_power_kw = current_power / 1000
+
+peak_value_kw = max_power / 1000
+offpeak_value_kw = min_power / 1000
+
+percent_avg = (current_power / avg_power) * 100
+
+if percent_avg > 120:
+    status = "🔴 Jauh di atas rata-rata historis"
+elif percent_avg > 105:
+    status = "🟡 Sedikit di atas rata-rata historis"
+else:
+    status = "🟢 Di bawah rata-rata historis"
+
+col1, col2, col3 = st.columns(3)
+
+st.metric(
+    "Rata-rata Daya",
+    f"{avg_power_kw:.2f} kW"
+)
+
+st.metric(
+    "Daya Maksimum",
+    f"{max_power_kw:.2f} kW"
+)
+
+st.metric(
+    "Daya Minimum",
+    f"{min_power_kw:.2f} kW"
+)
+
+col4, col5, col6, col7 = st.columns(4)
+
+with col4:
+    st.metric(
+        "Peak Load",
+        peak_time.strftime("%H:%M WIB")
+    )
+
+with col5:
+    st.metric(
+        "Off Peak",
+        offpeak_time.strftime("%H:%M WIB")
+    )
+
+with col6:
+    st.metric(
+        "Status Audit",
+        status
+    )
+with col7:
+    st.metric(
+        "Terhadap Rata-rata",
+        f"{percent_avg:.1f}%"
+    )
+
+# ==========================
+# PROFIL BEBAN HARIAN
+# ==========================
+
+st.subheader("Profil Beban Harian")
+
+daily_profile = (
+    hourly.groupby(hourly.index.hour)
+    .mean()
+    .reset_index()
+)
+
+daily_profile.columns = [
+    "Jam",
+    "Power"
+]
+daily_profile["Jam_Label"] = (
+    daily_profile["Jam"]
+    .apply(lambda x: f"{x:02d}.00")
+)
+
+fig_daily = px.line(
+    daily_profile,
+    x="Jam_Label",
+    y="Power",
+    markers=True,
+    title="Rata-rata Konsumsi Daya per Jam"
+)
+
+fig_daily.update_layout(
+    xaxis_title="Jam",
+    yaxis_title="Power (kW)",
+    hovermode="x unified"
+)
+
+st.plotly_chart(
+    fig_daily,
+    use_container_width=True
+)
+
+# ==========================
+# HASIL ANALISIS AUDIT
+# ==========================
+
+st.subheader("Hasil Analisis Audit Energi")
+
+peak_value = hourly.max()
+offpeak_value = hourly.min()
+
+st.info(
+f"""
+### Ringkasan Audit Energi
+
+• Rata-rata konsumsi daya gedung adalah **{avg_power_kw:.2f} kW**.
+
+• Beban puncak (Peak Load) terjadi pada pukul **{peak_time.strftime('%H.%M WIB')}**
+dengan konsumsi sebesar **{peak_value_kw:.2f} kW**.
+
+• Beban terendah (Off Peak) terjadi pada pukul **{offpeak_time.strftime('%H.%M WIB')}**
+dengan konsumsi sebesar **{offpeak_value_kw:.2f} kW**.
+
+• Konsumsi daya saat ini sebesar **{current_power_kw:.2f} kW** dengan status **{status}**.
+
+### Rekomendasi
+
+- Mengurangi penggunaan beban non-prioritas pada jam beban puncak.
+- Menjadwalkan beban yang tidak kritis pada periode off-peak.
+- Memanfaatkan hasil forecasting Random Forest dan LSTM sebagai peringatan dini apabila diprediksi terjadi kenaikan konsumsi daya pada beberapa jam berikutnya.
+"""
+)
+
+# ==========================
+# BASELINE PENILAIAN
+# ==========================
+
+with st.expander("📖 Baseline Penilaian Audit"):
+
+    st.markdown("""
+### Baseline Penilaian
+
+Dashboard ini menggunakan **baseline historis** sebagai acuan awal audit energi.
+
+Penilaian dilakukan dengan membandingkan konsumsi daya saat ini terhadap **rata-rata konsumsi daya historis**.
+
+Kategori yang digunakan:
+
+- 🟢 **Di bawah rata-rata historis** : ≤ 105% dari rata-rata historis.
+- 🟡 **Sedikit di atas rata-rata historis** : >105% hingga 120%.
+- 🔴 **Jauh di atas rata-rata historis** : >120%.
+
+Pendekatan ini merupakan **rule-based assessment** untuk monitoring konsumsi energi secara realtime.
+
+Untuk audit energi yang mengacu pada standar nasional, baseline dapat dikembangkan menggunakan **Intensitas Konsumsi Energi (IKE)** atau benchmark gedung sesuai standar yang berlaku.
+""")
 
 # ==========================
 # FORECAST
@@ -278,13 +447,13 @@ if len(hourly) >= 24:
     with col1:
         st.metric(
             "RF Prediksi +1 Jam",
-            f"{rf_forecast[0]:.2f} W"
+            f"{rf_forecast[0]/1000:.2f} kW"
         )
 
     with col2:
         st.metric(
             "LSTM Prediksi +1 Jam",
-            f"{lstm_forecast[0]:.2f} W"
+            f"{lstm_forecast[0]/1000:.2f} kW"
         )
 
     # ==========================
@@ -308,6 +477,8 @@ if len(hourly) >= 24:
     forecast_df["Waktu"]
     .dt.strftime("%d-%m %H:%M")
 )
+    forecast_df["Random Forest"] = forecast_df["Random Forest"] / 1000
+    forecast_df["LSTM"] = forecast_df["LSTM"] / 1000
 
     col1, col2 = st.columns(2)
 
@@ -343,7 +514,7 @@ if len(hourly) >= 24:
     fig.update_layout(
         hovermode="x unified",
         xaxis_title="Waktu (WIB)",
-        yaxis_title="Power (Watt)"
+        yaxis_title="Power (kW)"
     )
 
     st.plotly_chart(
@@ -517,7 +688,7 @@ if len(hourly) >= 24:
     fig_rf.update_layout(
         hovermode="x unified",
         xaxis_title="Waktu",
-        yaxis_title="Power (Watt)"
+        yaxis_title="Power (kW)"
     )
 
     st.plotly_chart(
@@ -559,7 +730,7 @@ if len(hourly) >= 24:
     fig_lstm.update_layout(
         hovermode="x unified",
         xaxis_title="Waktu",
-        yaxis_title="Power (Watt)"
+        yaxis_title="Power (kW)"
     )
 
     st.plotly_chart(
