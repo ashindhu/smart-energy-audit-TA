@@ -37,25 +37,21 @@ st.sidebar.write("Refresh : 60 detik")
 
 st.sidebar.markdown("---")
 
-st.sidebar.subheader("Model")
-
-st.sidebar.success("Random Forest")
-
-st.sidebar.success("LSTM")
-
-st.sidebar.markdown("---")
-
 st.sidebar.subheader("Universitas")
 
 st.sidebar.write("Telkom University")
 
 st.sidebar.write("Teknik Elektro")
+st.sidebar.markdown("---")
+
 
 st.title("Smart Energy Audit Dashboard")
 
 st.markdown(
     """
-### Prediksi Konsumsi Daya Gedung Menggunakan Machine Learning
+### Monitoring Konsumsi Energi Gedung Berbasis Machine Learning
+
+Dashboard ini digunakan untuk melakukan monitoring konsumsi energi secara realtime, analisis baseline audit energi, serta forecasting konsumsi daya menggunakan Random Forest Regression dan Long Short-Term Memory (LSTM).
 
 Model yang digunakan:
 
@@ -139,6 +135,43 @@ hourly = hourly.interpolate(limit=3)
 hourly = hourly.dropna()
 
 # ==========================
+# LOAD PROFILE
+# ==========================
+
+current_power = hourly.iloc[-1]
+
+peak_power = hourly.max()
+peak_time = hourly.idxmax()
+
+offpeak_power = hourly.min()
+offpeak_time = hourly.idxmin()
+
+print("Peak Time :", peak_time)
+print("Off Peak Time :", offpeak_time)
+
+print("Peak Power :", peak_power)
+print("Off Peak Power :", offpeak_power)
+
+# ==========================
+# BASELINE RANDOM FOREST
+# ==========================
+
+latest = hourly.iloc[-24:]
+
+rf_history = list(hourly.values)
+
+rf_input = pd.DataFrame({
+    "lag_1": [rf_history[-1]],
+    "lag_2": [rf_history[-2]],
+    "lag_3": [rf_history[-3]],
+    "lag_6": [rf_history[-6]],
+    "lag_12": [rf_history[-12]],
+    "lag_24": [rf_history[-24]]
+})
+
+baseline_rf = rf_model.predict(rf_input)[0]
+
+# ==========================
 # DATA REALTIME
 # ==========================
 
@@ -146,7 +179,7 @@ st.subheader("Data Realtime Per Jam")
 
 plot_df = pd.DataFrame({
     "Waktu": hourly.index,
-    "Power": hourly.values
+    "Power": hourly.values / 1000
 })
 
 fig = px.line(
@@ -172,92 +205,91 @@ st.subheader("Informasi Sistem")
 
 col1, col2, col3 = st.columns(3)
 
-
 with col1:
-    st.metric(
-        "Update Terakhir",
-        hourly.index[-1].strftime("%H:%M")
-    )
+    st.metric("Jumlah Data", len(hourly))
 
 with col2:
-    st.metric(
-        "Random Forest",
-        "READY"
-    )
+    st.metric("Update Terakhir",
+              hourly.index[-1].strftime("%H:%M"))
 
 with col3:
-    st.metric(
-        "LSTM",
-        "READY"
-    )
+    st.metric("Model Baseline",
+              "Random Forest")
 
 st.caption(
     f"Channel ThingSpeak : {CHANNEL_ID} | "
     f"Update terakhir : {hourly.index[-1].strftime('%d-%m-%Y %H:%M WIB')}"
 )
 
-# ==========================
-# HASIL AUDIT ENERGI
-# ==========================
+
+    # ==========================
+    # HASIL AUDIT ENERGI
+    # ==========================
 
 st.header("📋 Hasil Audit Energi")
 
-avg_power = hourly.mean()
-max_power = hourly.max()
-min_power = hourly.min()
-
-peak_time = hourly.idxmax()
-offpeak_time = hourly.idxmin()
-
 current_power = hourly.iloc[-1]
-# Konversi Watt -> kW
-avg_power_kw = avg_power / 1000
-max_power_kw = max_power / 1000
-min_power_kw = min_power / 1000
+
 current_power_kw = current_power / 1000
 
-peak_value_kw = max_power / 1000
-offpeak_value_kw = min_power / 1000
+baseline_kw = baseline_rf / 1000
 
-percent_avg = (current_power / avg_power) * 100
+delta = (
+    (current_power - baseline_rf)
+    / baseline_rf
+) * 100
 
-if percent_avg > 120:
-    status = "🔴 Jauh di atas rata-rata historis"
-elif percent_avg > 105:
-    status = "🟡 Sedikit di atas rata-rata historis"
+if delta > 15:
+
+    status = "🔴 Boros"
+
+elif delta > 5:
+
+    status = "🟡 Waspada"
+
+elif delta >= -5:
+
+    status = "🟢 Normal"
+
 else:
-    status = "🟢 Di bawah rata-rata historis"
+
+    status = "🟢 Hemat"
 
 col1, col2, col3 = st.columns(3)
 
-st.metric(
-    "Rata-rata Daya",
-    f"{avg_power_kw:.2f} kW"
-)
+with col1:
+    st.metric(
+        "Konsumsi Aktual",
+        f"{current_power_kw:.2f} kW"
+    )
 
-st.metric(
-    "Daya Maksimum",
-    f"{max_power_kw:.2f} kW"
-)
+with col2:
+    st.metric(
+        "Baseline RF",
+        f"{baseline_kw:.2f} kW"
+    )
 
-st.metric(
-    "Daya Minimum",
-    f"{min_power_kw:.2f} kW"
-)
+with col3:
+    st.metric(
+        "Deviasi Δ",
+        f"{delta:.2f}%"
+    )
 
 col4, col5, col6, col7 = st.columns(4)
 
 with col4:
     st.metric(
-        "Peak Load",
-        peak_time.strftime("%H:%M WIB")
-    )
+    "Peak Load",
+    f"{peak_power/1000:.2f} kW",
+    peak_time.strftime("%H:%M WIB")
+)
 
 with col5:
     st.metric(
-        "Off Peak",
-        offpeak_time.strftime("%H:%M WIB")
-    )
+    "Off Peak",
+    f"{offpeak_power/1000:.2f} kW",
+    offpeak_time.strftime("%H:%M WIB")
+)
 
 with col6:
     st.metric(
@@ -266,8 +298,8 @@ with col6:
     )
 with col7:
     st.metric(
-        "Terhadap Rata-rata",
-        f"{percent_avg:.1f}%"
+        "Deviasi",
+        f"{delta:.2f}%"
     )
 
 # ==========================
@@ -286,10 +318,12 @@ daily_profile.columns = [
     "Jam",
     "Power"
 ]
+daily_profile["Power"] = daily_profile["Power"] / 1000
 daily_profile["Jam_Label"] = (
     daily_profile["Jam"]
     .apply(lambda x: f"{x:02d}.00")
 )
+
 
 fig_daily = px.line(
     daily_profile,
@@ -319,27 +353,59 @@ st.subheader("Hasil Analisis Audit Energi")
 peak_value = hourly.max()
 offpeak_value = hourly.min()
 
-st.info(
-f"""
+st.info(f"""
 ### Ringkasan Audit Energi
 
-• Rata-rata konsumsi daya gedung adalah **{avg_power_kw:.2f} kW**.
+• Konsumsi Aktual : **{current_power_kw:.2f} kW**
 
-• Beban puncak (Peak Load) terjadi pada pukul **{peak_time.strftime('%H.%M WIB')}**
-dengan konsumsi sebesar **{peak_value_kw:.2f} kW**.
+• Baseline Random Forest : **{baseline_kw:.2f} kW**
 
-• Beban terendah (Off Peak) terjadi pada pukul **{offpeak_time.strftime('%H.%M WIB')}**
-dengan konsumsi sebesar **{offpeak_value_kw:.2f} kW**.
+• Deviasi Load Profiling : **{delta:.2f}%**
 
-• Konsumsi daya saat ini sebesar **{current_power_kw:.2f} kW** dengan status **{status}**.
+• Status Audit : **{status}**
+
+### Interpretasi
+""")
+
+if delta > 15:
+    st.error("Deviasi di atas 15%. Terindikasi terjadi pemborosan energi sehingga diperlukan evaluasi beban dan peralatan listrik.")
+
+elif delta > 5:
+    st.warning("Deviasi berada pada rentang 5–15%. Konsumsi energi mulai menyimpang dari baseline sehingga perlu dilakukan pemantauan.")
+
+elif delta >= -5:
+    st.success("Konsumsi energi masih berada di sekitar baseline sehingga kondisi operasional dinilai normal.")
+
+else:
+    st.success("Konsumsi energi berada di bawah baseline sehingga penggunaan energi lebih efisien dibanding kondisi normal.")
 
 ### Rekomendasi
 
-- Mengurangi penggunaan beban non-prioritas pada jam beban puncak.
-- Menjadwalkan beban yang tidak kritis pada periode off-peak.
-- Memanfaatkan hasil forecasting Random Forest dan LSTM sebagai peringatan dini apabila diprediksi terjadi kenaikan konsumsi daya pada beberapa jam berikutnya.
-"""
-)
+if delta > 15:
+
+    st.error("""
+• Lakukan inspeksi peralatan dengan konsumsi tinggi.
+
+• Evaluasi jadwal operasi HVAC dan pencahayaan.
+
+• Periksa kemungkinan beban yang tidak diperlukan.
+""")
+
+elif delta > 5:
+
+    st.warning("""
+• Lakukan monitoring konsumsi energi.
+
+• Evaluasi perubahan pola beban.
+""")
+
+else:
+
+    st.success("""
+• Konsumsi energi masih sesuai baseline.
+
+• Tidak diperlukan tindakan korektif.
+""")
 
 # ==========================
 # BASELINE PENILAIAN
@@ -348,22 +414,24 @@ dengan konsumsi sebesar **{offpeak_value_kw:.2f} kW**.
 with st.expander("📖 Baseline Penilaian Audit"):
 
     st.markdown("""
-### Baseline Penilaian
+### Baseline Penilaian Audit
 
-Dashboard ini menggunakan **baseline historis** sebagai acuan awal audit energi.
+Pada penelitian ini, proses audit energi menggunakan pendekatan **Load Profiling**, yaitu membandingkan konsumsi daya aktual dengan **baseline** yang dihasilkan oleh model **Random Forest Regression**.
 
-Penilaian dilakukan dengan membandingkan konsumsi daya saat ini terhadap **rata-rata konsumsi daya historis**.
+Nilai deviasi dihitung menggunakan persamaan:
 
-Kategori yang digunakan:
+Δ = (Aktual − Baseline) / Baseline × 100%
 
-- 🟢 **Di bawah rata-rata historis** : ≤ 105% dari rata-rata historis.
-- 🟡 **Sedikit di atas rata-rata historis** : >105% hingga 120%.
-- 🔴 **Jauh di atas rata-rata historis** : >120%.
+Interpretasi hasil audit yang digunakan pada penelitian ini adalah:
 
-Pendekatan ini merupakan **rule-based assessment** untuk monitoring konsumsi energi secara realtime.
+- 🟢 **Normal** : Deviasi ≤ 5%
+- 🟡 **Waspada** : Deviasi > 5% hingga 15%
+- 🔴 **Boros** : Deviasi > 15%
 
-Untuk audit energi yang mengacu pada standar nasional, baseline dapat dikembangkan menggunakan **Intensitas Konsumsi Energi (IKE)** atau benchmark gedung sesuai standar yang berlaku.
+Semakin kecil nilai deviasi, maka pola konsumsi energi semakin mendekati kondisi normal sehingga operasi gedung dinilai lebih efisien. Sebaliknya, deviasi yang tinggi mengindikasikan adanya penyimpangan pola konsumsi energi yang perlu dianalisis lebih lanjut sebagai dasar penyusunan rekomendasi efisiensi operasional.
 """)
+
+
 
 # ==========================
 # FORECAST
@@ -498,9 +566,9 @@ if len(hourly) >= 24:
 
     plot_forecast = pd.DataFrame({
         "Waktu": [hourly.index[-1]] + list(future_time),
-        "Aktual": [hourly.iloc[-1]] + [None] * 5,
-        "Random Forest": [hourly.iloc[-1]] + rf_forecast,
-        "LSTM": [hourly.iloc[-1]] + lstm_forecast
+        "Aktual": [hourly.iloc[-1]/1000] + [None]*5,
+        "Random Forest": [hourly.iloc[-1]/1000] + [x/1000 for x in rf_forecast],
+        "LSTM": [hourly.iloc[-1]/1000] + [x/1000 for x in lstm_forecast]
     })
 
     fig = px.line(
@@ -510,6 +578,19 @@ if len(hourly) >= 24:
         markers=True,
         title="Perbandingan Forecast 5 Jam Kedepan"
     )
+    fig.update_traces(line=dict(width=3))
+
+    fig.for_each_trace(
+lambda t: t.update(
+    line=dict(
+        color={
+            "Aktual": "#1f77b4",
+            "Random Forest": "#2ca02c",
+            "LSTM": "#d62728"
+        }[t.name]
+    )
+)
+)
 
     fig.update_layout(
         hovermode="x unified",
@@ -526,9 +607,7 @@ if len(hourly) >= 24:
     # PERFORMA MODEL
     # ==========================
 
-    st.subheader(
-        "Perbandingan Performa Model"
-    )
+    st.subheader("Evaluasi Model Machine Learning")
 
     result = pd.DataFrame({
         "Model": [
@@ -644,9 +723,9 @@ if len(hourly) >= 24:
             f"""
     🏆 Model Terbaik Saat Ini : **Random Forest**
 
-    Selisih prediksi Random Forest : **{rf_error:.2f} Watt**
+    Selisih prediksi Random Forest : {rf_error/1000:.2f} kW
 
-    Selisih prediksi LSTM : **{lstm_error:.2f} Watt**
+    Selisih prediksi LSTM : {lstm_error/1000:.2f} kW
 
     Random Forest memiliki selisih prediksi yang lebih kecil terhadap data aktual sehingga memberikan hasil forecasting yang lebih akurat pada pembaruan data terbaru.
     """
@@ -658,10 +737,9 @@ if len(hourly) >= 24:
             f"""
     🏆 Model Terbaik Saat Ini : **LSTM**
 
-    Selisih prediksi Random Forest : **{rf_error:.2f} Watt**
+    Selisih prediksi Random Forest : {rf_error/1000:.2f} kW
 
-    Selisih prediksi LSTM : **{lstm_error:.2f} Watt**
-
+Selisih prediksi LSTM : {lstm_error/1000:.2f} kW
 
     LSTM memiliki selisih prediksi yang lebih kecil terhadap data aktual sehingga memberikan hasil forecasting yang lebih akurat pada pembaruan data terbaru.
     """
@@ -674,6 +752,10 @@ if len(hourly) >= 24:
     st.subheader("History Evaluasi Random Forest")
 
     history_rf = pd.read_csv("history_rf.csv")
+
+    history_rf["Actual"] = history_rf["Actual"] / 1000
+    history_rf["Prediction"] = history_rf["Prediction"] / 1000
+    history_rf["Error"] = history_rf["Error"] / 1000
 
     history_rf["Waktu"] = pd.to_datetime(history_rf["Waktu"])
 
@@ -701,7 +783,7 @@ if len(hourly) >= 24:
     with col1:
         st.metric(
             "MAE History RF",
-            f"{history_rf['Error'].mean():.2f} W"
+            f"{history_rf['Error'].mean():.2f} kW"
         )
 
     with col2:
@@ -716,6 +798,10 @@ if len(hourly) >= 24:
     st.subheader("History Evaluasi LSTM")
 
     history_lstm = pd.read_csv("history_lstm.csv")
+
+    history_lstm["Actual"] = history_lstm["Actual"] / 1000
+    history_lstm["Prediction"] = history_lstm["Prediction"] / 1000
+    history_lstm["Error"] = history_lstm["Error"] / 1000
 
     history_lstm["Waktu"] = pd.to_datetime(history_lstm["Waktu"])
 
@@ -743,7 +829,7 @@ if len(hourly) >= 24:
     with col1:
         st.metric(
             "MAE History LSTM",
-            f"{history_lstm['Error'].mean():.2f} W"
+            f"{history_lstm['Error'].mean():.2f} kW"
         )
 
     with col2:
