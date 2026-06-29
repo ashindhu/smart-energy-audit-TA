@@ -702,7 +702,8 @@ lambda t: t.update(
         fig_compare,
         use_container_width=True
     )
-    
+
+
     # ==========================
     # ANALISIS MODEL
     # ==========================
@@ -834,9 +835,54 @@ Selisih prediksi LSTM : {lstm_error/1000:.2f} kW
             f"{history_lstm['MAPE'].mean():.2f} %"
         )
     
+    # ==========================
+    # GABUNGAN HISTORY RF & LSTM
+    # ==========================
+
+    st.subheader("Perbandingan Aktual, Random Forest, dan LSTM")
+
+    compare_history = history_rf.copy()
+
+    compare_history["RF"] = history_rf["Prediction"]
+    compare_history["LSTM"] = history_lstm["Prediction"]
+    compare_history["Aktual"] = history_rf["Actual"]
+
+    fig_compare = px.line(
+        compare_history,
+        x="Waktu",
+        y=["Aktual", "RF", "LSTM"],
+        markers=True,
+        title="Perbandingan Data Aktual dengan Prediksi Random Forest dan LSTM"
+    )
+
+    # warna manual
+    fig_compare.for_each_trace(
+        lambda t: t.update(
+            line=dict(
+                width=3,
+                color={
+                    "Aktual": "#1f77b4",
+                    "RF": "#2ca02c",
+                    "LSTM": "#d62728"
+                }[t.name]
+            )
+        )
+    )
+
+    fig_compare.update_layout(
+        hovermode="x unified",
+        xaxis_title="Waktu",
+        yaxis_title="Power (kW)"
+    )
+
+    st.plotly_chart(
+        fig_compare,
+        use_container_width=True
+    )
 
 else:
 
     st.warning(
         "Data belum cukup untuk prediksi."
     )
+    
