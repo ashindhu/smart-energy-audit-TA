@@ -296,11 +296,7 @@ with col6:
         "Status Audit",
         status
     )
-with col7:
-    st.metric(
-        "Deviasi",
-        f"{delta:.2f}%"
-    )
+
 
 # ==========================
 # PROFIL BEBAN HARIAN
