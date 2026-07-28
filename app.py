@@ -193,6 +193,10 @@ fig = px.line(
     title="Konsumsi Daya Aktual"
 )
 
+fig.update_traces(
+    hovertemplate="<b>%{x}</b><br>Daya : %{y:.2f} kW<extra></extra>"
+)
+
 fig.update_layout(
     hovermode="x unified",
     xaxis_title="Waktu (WIB)",
@@ -330,6 +334,10 @@ fig_daily = px.line(
     y="Power",
     markers=True,
     title="Rata-rata Konsumsi Daya per Jam"
+)
+
+fig_daily.update_traces(
+    hovertemplate="Jam : %{x}<br>Daya : %{y:.2f} kW<extra></extra>"
 )
 
 fig_daily.update_layout(
@@ -590,7 +598,9 @@ lambda t: t.update(
     )
 )
 )
-
+fig.update_traces(
+    hovertemplate="<b>%{fullData.name}</b><br>%{x}<br>Daya : %{y:.2f} kW<extra></extra>"
+)
     fig.update_layout(
         hovermode="x unified",
         xaxis_title="Waktu (WIB)",
@@ -812,6 +822,9 @@ Selisih prediksi LSTM : {lstm_error/1000:.2f} kW
         markers=True,
         title="LSTM : Aktual vs Prediksi"
     )
+fig_lstm.update_traces(
+    hovertemplate="<b>%{fullData.name}</b><br>%{x}<br>Daya : %{y:.2f} kW<extra></extra>"
+)
 
     fig_lstm.update_layout(
         hovermode="x unified",
