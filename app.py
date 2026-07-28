@@ -278,7 +278,7 @@ with col3:
         f"{delta:.2f}%"
     )
 
-col4, col5, col6 = st.columns(4)
+col4, col5, col6 = st.columns(3)
 
 with col4:
     st.metric(
