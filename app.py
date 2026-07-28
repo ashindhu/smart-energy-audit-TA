@@ -822,9 +822,9 @@ Selisih prediksi LSTM : {lstm_error/1000:.2f} kW
         markers=True,
         title="LSTM : Aktual vs Prediksi"
     )
-fig_lstm.update_traces(
-    hovertemplate="<b>%{fullData.name}</b><br>%{x}<br>Daya : %{y:.2f} kW<extra></extra>"
-)
+    fig_lstm.update_traces(
+        hovertemplate="<b>%{fullData.name}</b><br>%{x}<br>Daya : %{y:.2f} kW<extra></extra>"
+    )
 
     fig_lstm.update_layout(
         hovermode="x unified",
