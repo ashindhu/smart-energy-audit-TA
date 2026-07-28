@@ -598,9 +598,9 @@ lambda t: t.update(
     )
 )
 )
-fig.update_traces(
-    hovertemplate="<b>%{fullData.name}</b><br>%{x}<br>Daya : %{y:.2f} kW<extra></extra>"
-)
+    fig.update_traces(
+        hovertemplate="<b>%{fullData.name}</b><br>%{x}<br>Daya : %{y:.2f} kW<extra></extra>"
+    )
     fig.update_layout(
         hovermode="x unified",
         xaxis_title="Waktu (WIB)",
