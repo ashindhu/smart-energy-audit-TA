@@ -135,16 +135,25 @@ hourly = hourly.interpolate(limit=3)
 hourly = hourly.dropna()
 
 # ==========================
+# DATA LIVE & DATA AUDIT
+# ==========================
+
+hourly_live = hourly.copy()
+
+# Data audit menggunakan jam terakhir yang sudah selesai
+hourly_audit = hourly.iloc[:-1]
+
+# ==========================
 # LOAD PROFILE
 # ==========================
 
-current_power = hourly.iloc[-1]
+current_power = hourly_audit.iloc[-1]
 
-peak_power = hourly.max()
-peak_time = hourly.idxmax()
+peak_power = hourly_audit.max()
+peak_time = hourly_audit.idxmax()
 
-offpeak_power = hourly.min()
-offpeak_time = hourly.idxmin()
+offpeak_power = hourly_audit.min()
+offpeak_time = hourly_audit.idxmin()
 
 print("Peak Time :", peak_time)
 print("Off Peak Time :", offpeak_time)
@@ -156,9 +165,9 @@ print("Off Peak Power :", offpeak_power)
 # BASELINE RANDOM FOREST
 # ==========================
 
-latest = hourly.iloc[-24:]
+latest = hourly_audit.iloc[-24:]
 
-rf_history = list(hourly.values)
+rf_history = list(hourly_audit.values)
 
 rf_input = pd.DataFrame({
     "lag_1": [rf_history[-1]],
@@ -178,7 +187,7 @@ baseline_rf = rf_model.predict(rf_input)[0]
 st.subheader("Data Realtime Per Jam")
 
 # Tampilkan hanya 7 hari terakhir
-plot_hourly = hourly.last("7D")
+plot_hourly = hourly_live.last("7D")
 
 plot_df = pd.DataFrame({
     "Waktu": plot_hourly.index,
@@ -213,11 +222,11 @@ st.subheader("Informasi Sistem")
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.metric("Jumlah Data", len(hourly))
+    st.metric("Jumlah Data", len(hourly_live))
 
 with col2:
     st.metric("Update Terakhir",
-              hourly.index[-1].strftime("%H:%M"))
+              hourly_live.index[-1].strftime("%H:%M"))
 
 with col3:
     st.metric("Model Baseline",
@@ -225,17 +234,20 @@ with col3:
 
 st.caption(
     f"Channel ThingSpeak : {CHANNEL_ID} | "
-    f"Update terakhir : {hourly.index[-1].strftime('%d-%m-%Y %H:%M WIB')}"
+    f"Update terakhir : {hourly_live.index[-1].strftime('%d-%m-%Y %H:%M WIB')}"
 )
 
 
-    # ==========================
-    # HASIL AUDIT ENERGI
-    # ==========================
+# ==========================
+# HASIL AUDIT ENERGI
+# ==========================
 
 st.header("📋 Hasil Audit Energi")
-
-current_power = hourly.iloc[-1]
+st.caption(
+    f"Audit menggunakan data jam terakhir yang telah selesai "
+    f"({hourly_audit.index[-1].strftime('%d-%m-%Y %H:%M WIB')})"
+)
+current_power = hourly_audit.iloc[-1]
 
 current_power_kw = current_power / 1000
 
@@ -444,15 +456,15 @@ Semakin kecil nilai deviasi, maka pola konsumsi energi semakin mendekati kondisi
 # FORECAST
 # ==========================
 
-if len(hourly) >= 24:
+if len(hourly_audit) >= 24:
 
-    latest = hourly.iloc[-24:]
+    latest = hourly_audit.iloc[-24:]
 
     # ==========================
     # RANDOM FOREST 5 JAM
     # ==========================
 
-    rf_history = list(hourly.values)
+    rf_history = list(hourly_audit.values)
 
     rf_forecast = []
 
@@ -538,7 +550,7 @@ if len(hourly) >= 24:
     st.subheader("Forecast 5 Jam Kedepan")
 
     future_time = pd.date_range(
-        start=hourly.index[-1] + pd.Timedelta(hours=1),
+        start=hourly_audit.index[-1] + pd.Timedelta(hours=1),
         periods=5,
         freq="h"
     )
@@ -572,10 +584,10 @@ if len(hourly) >= 24:
         )
 
     plot_forecast = pd.DataFrame({
-        "Waktu": [hourly.index[-1]] + list(future_time),
-        "Aktual": [hourly.iloc[-1]/1000] + [None]*5,
-        "Random Forest": [hourly.iloc[-1]/1000] + [x/1000 for x in rf_forecast],
-        "LSTM": [hourly.iloc[-1]/1000] + [x/1000 for x in lstm_forecast]
+        "Waktu": [hourly_audit.index[-1]] + list(future_time),
+        "Aktual": [hourly_audit.iloc[-1]/1000] + [None]*5,
+        "Random Forest": [hourly_audit.iloc[-1]/1000] + [x/1000 for x in rf_forecast],
+        "LSTM": [hourly_audit.iloc[-1]/1000] + [x/1000 for x in lstm_forecast]
     })
 
     fig = px.line(
@@ -652,7 +664,7 @@ lambda t: t.update(
         "Perbandingan Forecast Dengan Data Aktual"
     )
 
-    actual = hourly.iloc[-1]
+    actual = hourly_audit.iloc[-1]
 
     validation = pd.DataFrame({
         "Model": [
