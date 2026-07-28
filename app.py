@@ -177,9 +177,12 @@ baseline_rf = rf_model.predict(rf_input)[0]
 
 st.subheader("Data Realtime Per Jam")
 
+# Tampilkan hanya 7 hari terakhir
+plot_hourly = hourly.last("7D")
+
 plot_df = pd.DataFrame({
-    "Waktu": hourly.index,
-    "Power": hourly.values / 1000
+    "Waktu": plot_hourly.index,
+    "Power": plot_hourly.values / 1000
 })
 
 fig = px.line(
