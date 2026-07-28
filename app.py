@@ -278,7 +278,7 @@ with col3:
         f"{delta:.2f}%"
     )
 
-col4, col5, col6, col7 = st.columns(4)
+col4, col5, col6 = st.columns(4)
 
 with col4:
     st.metric(
@@ -423,7 +423,7 @@ Nilai deviasi dihitung menggunakan persamaan:
 
 Interpretasi hasil audit yang digunakan pada penelitian ini adalah:
 
-- 🟢 **Normal** : Deviasi ≤ 5%
+- 🟢 **Normal** : Deviasi ≤ -5%
 - 🟡 **Waspada** : Deviasi > 5% hingga 15%
 - 🔴 **Boros** : Deviasi > 15%
 
